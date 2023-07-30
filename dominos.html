@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+
+
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/phaser@3.15.1/dist/phaser-arcade-physics.min.js"></script>
+    </head>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+    
+    
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgb(106, 90, 205);
+        }
+        .blueButton {
+        background-color:rgb(219,195,227);
+        border: none;
+        color: black;
+        padding: 10px 10px;
+        font-size: 21px;
+        width: 100px;
+        border-radius: 10px;
+    }
+    </style>
+    
+    <body>
+        <p style="font-size:20pt;color: white; margin: 1%;">Players take turns placing dominos (1 x 2 rectangles) on the
+            given 4x5 board. Dominos must remain completely inside the board, and dominos cannot overlap. Dominos must be
+            placed aligning to the grid squares. The player who cannot make a move loses.You can play as either player 1 or
+            player 2 and you must try to defeat the computer.
+        </p><br><center>
+            <button class="blueButton" id="p1" onClick="selectPlayer(1)">Player 1</button>&emsp;&emsp;&emsp;&emsp;
+            <button class="blueButton" id="p2" onClick="selectPlayer(2)">Player 2</button></center><br>
+        <div id="mycanvas"></div>
+    
+    
+    
+        <script>
+            var game_states = new Map();
+    
+            var pow2 = [1]; 
+           
+            for (let i = 0; i <= 20; i++)
+                pow2.push(pow2[i] * 2);
+                
+    
+            var dominos = [];
+            for (let i = 0; i < 20; i++) {
+                if (i % 5 != 4) {
+                    dominos.push(pow2[i] + pow2[i + 1]);
+                }
+                if (i < 15) {
+                    dominos.push(pow2[i] + pow2[i + 5]);
+                }
+            }
+            var posdom = 31;
+    
+            function analyze_game(n) {
+                game_states.set(n, [-1, 'Player 2']);
+                let alrloss = 1, fallback = 0;
+                for (let i = 0; i < posdom; i++) {
+                    if ((n ^ dominos[i]) == n - dominos[i]) {
+                        alrloss = 0;
+                        let candidate = n - dominos[i];
+                        fallback = candidate;
+                        if (!game_states.has(candidate))
+                            analyze_game(candidate);
+    
+                        if (game_states.get(candidate)[1] == 'Player 2')
+                            game_states.set(n, [candidate, 'Player 1']);
+                    }
+                }
+    
+                if (alrloss == 0 && game_states.get(n)[1] == 'Player 2') {
+                    game_states.set(n, [fallback, 'Player 2']);
+                }
+    
+                return;
+    
+            }
+            //document.write(game_states.get(99));
+            analyze_game(pow2[20] - 1);
+    
+            function best_move(emptysquare) {
+                //emptysquare is array of pairs [rownumber, columnnumber]
+                let boardval = 0;
+                let arrit = emptysquare.length;
+               
+                for (let i = 0; i < arrit; i++) {
+                    let cellnum = 5 * emptysquare[i][1] + emptysquare[i][0] - 6;
+                    boardval += pow2[cellnum];
+                }
+                
+                
+    
+                let nboard = game_states.get(boardval)[0];
+                if (nboard == -1) {
+                    //Human has won!
+                    return [[-1, -1], [-1, -1]]
+                }
+                let removal = boardval - nboard;
+                let crem1, crem2;
+                for (let i = 0; i < 20; i++) {
+                    if (((removal ^ pow2[i]) == removal - pow2[i]) && 2 * pow2[i] < removal)
+                        crem1 = i;
+                    if (((removal ^ pow2[i]) == removal - pow2[i]) && 2 * pow2[i] > removal)
+                        crem2 = i;
+                }
+    
+                //document.write(crem1, crem2);
+                return [[crem1 % 5 +1, Math.floor(crem1 / 5)+1], [crem2 % 5 +1, Math.floor(crem2 / 5)+1]];
+                //the row and column of the two cells to be deleted.
+            }
+    
+    
+            var config = {
+                type: Phaser.AUTO,
+                parent: "mycanvas",
+                width: window.innerWidth - 20,
+                height: window.innerHeight - 20,
+                pixelArt: false,
+                backgroundColor: '#6a5acd',
+                scene: {
+                    preload: preload,
+                    create: create,
+                    update: update
+                }
+            };
+    
+            var game = new Phaser.Game(config);
+            var scale = 1;
+            var bgscaleX = ((window.innerWidth) / 1450);
+            var bgscaleY = ((window.innerHeight) / 900);
+            var tiles = []
+            var turn = 1;
+            var player = 0;
+            var done = 0;
+            var text1;
+            var texttoshow = '';
+            prevtile = [];
+            var emptyTiles = [];
+            for (var i = 1; i < 5; i++) {
+                for (var j = 1; j < 6; j++) {
+                    emptyTiles.push([j, i])
+                }
+            }
+    
+    
+            if (bgscaleX < bgscaleY) {
+                scale = bgscaleX
+            } else {
+                scale = bgscaleY
+            }
+            function Remove(array, x) {
+                const index = array.indexOf(x);
+                if (index > -1) {
+                    array.splice(index, 1);
+                }
+            }
+    
+    
+            function preload() {
+    
+                this.load.image('square', 'assets/square1.png');
+                
+    
+            }
+            function selectPlayer(i) {
+                if (i == 1 && confirm('Are you sure you want to play as the first player?')) {
+                    player = 1
+                    p1.parentNode.removeChild(p1);
+                p2.parentNode.removeChild(p2);                    
+                    texttoshow = 'Your Turn'
+    
+    
+    
+                } else if (i == 2 && confirm('Are you sure you want to play as the second player?')) {
+                    player = 2
+                    texttoshow = 'Computer\'s turn'
+                    p1.parentNode.removeChild(p1);
+                p2.parentNode.removeChild(p2);                    
+                    setTimeout(computerMove, 3000)
+    
+                }
+            }
+            function computerMove() {
+                
+                var move = best_move(emptyTiles);
+                
+                t1=move[0]
+                t2=move[1]
+                
+                tiles[t1[1]][t1[0]].tint = 0x00FF00;
+               
+                
+                
+                
+                
+                tiles[t1[1]][t1[0]].istinted = 1;
+                tiles[t2[1]][t2[0]].tint = 0x00FF00;
+                tiles[t2[1]][t2[0]].istinted = 1;
+               
+    
+                
+                if (checkDone()) {
+                    done = 1
+                } else {
+                    player = 3 - player
+                    texttoshow = 'Your Turn'
+    
+                }
+    
+            }
+            function validMove(i, j) {
+                if (tiles[i][j].istinted == 1) {
+                    return false
+                }
+                if (turn == 2) {
+                    if ((prevtile[0] == i && Math.abs(j - prevtile[1]) == 1) || (prevtile[1] == j && Math.abs(i - prevtile[0]) == 1)) {
+                        return true
+                    }
+                } if (turn == 1) {
+                    if(i>1)
+                    {
+                        if(tiles[i-1][j].istinted == 0)
+                              return true
+                    }
+                    if(j>1)
+                    {
+                        if(tiles[i][j-1].istinted == 0)
+                              return true
+                    }
+                    if(i<4)
+                    {
+                        if(tiles[i+1][j].istinted == 0)
+                              return true
+                    }
+                    if(j<5)
+                    {
+                        if(tiles[i][j+1].istinted == 0)
+                              return true
+                    }
+                    return false
+                }
+    
+    
+                return false
+    
+            }
+    
+            function handleMove(i, j) {
+                if (player == 0) {
+                    alert('Please choose a player first!')
+                    return
+                }
+                if (player == 1) {
+                    if (validMove(i, j)) {
+                        tiles[i][j].tint = 0xFF0000;
+                        
+                        prevtile = [i, j]
+                        tiles[i][j].istinted = 1
+                        turn = 3 - turn
+                        if (checkDone()) {
+                            done = 1
+                        } else if (turn == 1) {
+                            
+                            player = 3 - player
+                            texttoshow = 'Computer\'s turn'
+                            setTimeout(computerMove, 3000)
+                        }
+                    } else {
+                        alert('Invalid Move')
+                    }
+                } else if (player == 2) {
+                    alert('Computer\'s turn')
+                }
+            }
+            function checkDone() {
+            
+                let checker = 1
+                for(let i =  1; i<=4; i++)
+                {
+                    for(let j = 1; j<=4; j++)
+                    {
+                        if(tiles[i][j].istinted != 1 && tiles[i][j+1].istinted != 1){
+                            checker = 0
+                            break
+                            
+                        }
+                            
+                    }
+                }
+                for(let i =  1; i<=3; i++)
+                {
+                    for(let j = 1; j<=5; j++)
+                    {
+                        if(tiles[i][j].istinted != 1 && tiles[i+1][j].istinted != 1){
+                            checker = 0
+                            break
+
+                    
+
+                        }
+                        
+                            
+                    }
+                }
+               
+                
+                if(checker == 0){
+                    return false
+                }
+                   return true
+                   
+    
+            }
+    
+    
+            function create() {
+                
+                const style = { font: "30px Arial", fill: "#fff" };
+                text1 = this.add.text(10, 5, ``, style);
+                
+                
+                for (var i = 1; i <= (4); i++) {
+                    subli = [];
+                    for (var j = 1; j <= (5); j++) {
+                        var square = this.add.sprite(40 * scale + (j * 80.0 * scale), (80.0 * scale) + (i * 80.0 * scale), 'square').setInteractive();
+                        square.scaleX = scale
+                        square.scaleY = scale
+                        subli[j] = square;
+                        square.posx = i;
+                        square.posy = j;
+                        square.istinted = 0;
+                        square.on('pointerdown', function (pointer) {
+                            handleMove(this.posx, this.posy);
+                        });
+                    }
+                    tiles[i] = subli;
+    
+                }
+            
+    
+    
+    
+            }
+    
+    
+            function update() {
+                text1.setText(texttoshow)
+                if (done == 1) {
+                    if (player == 1) {
+                        texttoshow = 'You win!'
+                    } else {
+                        texttoshow = 'You lose!'
+                    }
+                }
+                emptyTiles = [];
+                for (var i = 1; i < 5; i++) {
+                for (var j = 1; j < 6; j++) {
+                    if (tiles[i][j].istinted==0){
+                    emptyTiles.push([j, i])
+                    }
+                }
+            }
+    
+            }
+    
+    
+    
+        </script>
+        
+    
+    
+    </body>
+    
+    </html>

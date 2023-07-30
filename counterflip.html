@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.15.1/dist/phaser-arcade-physics.min.js"></script>
+</head>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgb(106, 90, 205)
+    }
+</style>
+
+<body>
+    <p style="font-size:20pt;color: white; margin: 1%;">Observe the 14 counters kept in a row. In one turn, you can
+        remove a red counter and flip the neighbouring counters (2 counters are neighbouring if they were next to each
+        other at the start of the game). Your objective in this one-player game is to remove all the counters.
+    </p><br>
+    <div id="mycanvas"></div>
+
+
+
+    <script>
+
+        var config = {
+            type: Phaser.AUTO,
+            parent: "mycanvas",
+            width: window.innerWidth - 20,
+            height: window.innerHeight - 20,
+            pixelArt: false,
+            backgroundColor: '#6a5acd',
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        var game = new Phaser.Game(config);
+        var scale = 1;
+        var bgscaleX = ((window.innerWidth) / 1450);
+        var bgscaleY = ((window.innerHeight) / 900);
+        var counters = []
+        var done = 0
+        var wintext, losetext;
+
+
+
+        if (bgscaleX < bgscaleY) {
+            scale = bgscaleX
+        } else {
+            scale = bgscaleY
+        }
+
+
+        function preload() {
+            this.load.image('counter', 'assets/counter.png');
+        }
+        function changeTint(x) {
+            if (x.istinted == 0) {
+
+
+                x.tint = 0x000000;
+                x.istinted = 1;
+
+
+            } else {
+
+                x.clearTint();
+                x.istinted = 0;
+
+            }
+
+        }
+        function handleMove(num) {
+            if (counters[num].istinted == 0) {
+                counters[num].destroy()
+                counters[num] = 0
+                if (counters[num - 1] != 0) {
+                    changeTint(counters[num - 1])
+
+                }
+                if (counters[num + 1] != 0) {
+                    changeTint(counters[num + 1])
+
+                }
+                checkDone()
+            } else {
+                alert('You can only remove a red counter')
+            }
+        }
+
+
+
+        function create() {
+            const style = { font: "30px Arial", fill: "#fff" };
+            wintext = this.add.text(10, 300, `Yay! You won the Game!`, style);
+            wintext.visible = false
+            losetext = this.add.text(10, 300, `Oh no! You lost the Game!`, style);
+            losetext.visible = false
+
+
+
+            for (var i = 1; i <= 14; i++) {
+                var c = this.add.sprite(80 * scale + (i * 80.0 * scale), (80.0 * scale), 'counter').setInteractive();
+                c.scaleX = scale
+                c.scaleY = scale
+                counters[i] = c
+                c.count = i
+                c.istinted = 0
+                c.on('pointerdown', function (pointer) {
+                    handleMove(this.count);
+                });
+
+            }
+            counters[0] = 0
+            counters[15] = 0
+            var tinted = [1, 3, 4, 6, 9, 12, 13]
+            for (var i = 0; i < 7; i++) {
+                counters[tinted[i]].tint = 0x000000;
+                counters[tinted[i]].istinted = 1
+
+
+            }
+
+
+        }
+        function checkDone() {
+            var count = 0
+            for (var i = 1; i < 15; i++) {
+                if (counters[i] == 0) {
+                    count += 1
+                }
+
+            }
+            if (count == 14) {
+                done = 1
+                return
+
+            }
+            count = 0
+            for (var i = 1; i < 15; i++) {
+                if (counters[i] == 0 || counters[i].istinted == 1) {
+                    count += 1
+                }
+
+            }
+            if (count == 14) {
+                done = 2
+
+            }
+
+
+        }
+
+
+        function update() {
+
+
+            if (done == 1) {
+                wintext.visible = true
+
+            } else if (done == 2) {
+                losetext.visible = true
+
+
+            }
+
+
+        }
+
+
+
+    </script><br>
+
+
+
+</body>
+
+</html>

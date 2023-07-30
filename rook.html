@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.15.1/dist/phaser-arcade-physics.min.js"></script>
+</head>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgb(106,90,205);
+    }
+    .blueButton {
+        background-color:rgb(219,195,227);
+        border: none;
+        color: black;
+        padding: 10px 10px;
+        font-size: 21px;
+        width: 100px;
+        border-radius: 10px;
+    }
+</style>
+
+<body>
+    <p id="rules" align='justify' style="font-size:20pt;color: white; margin: 1%;"  >In a turn, you may move a red rook as many squares to the right as you want.The computer in its turn will move a black rook as many squares left as it wants.You and the computer will alternate turns. You may decide whether you want to be player 1 or player 2. Two rooks may not jump over each other, and capturing your opponent&#39s rook is not allowed.You win if the computer in its turn cannot make a valid move. You lose if it is your turn, and you do not have any legal moves left. Play and win.
+    </p><br>
+    <p id="move" style="font-size:30pt;color: white; margin: 1%;"></p>
+    <center>
+        <p id="p0" style="font-size:20pt;color: white;">
+            Choose whether you want to play First or Second :
+        </p><br>
+        <button class="blueButton" id="p1" onClick="selectPlayer(1)">First</button>&emsp;&emsp;&emsp;&emsp;
+        <button class="blueButton" id="p2" onClick="selectPlayer(2)">Second</button>
+    </center>
+    <div id="mycanvas"></div>
+
+    <script>
+        var rsz = 9;
+
+        var diffs = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        function rand_range(a, b) {
+            return Math.floor((b - a) * Math.random()) + a
+            //this includes a and excludes b
+        }
+        function space_calc() {
+            for (let i = 0; i < rsz; i++) {
+                diffs[i] = blackrook_pos[i] - redrook_pos[i] - 1;
+            }
+            return;
+        }
+        function best_move() {
+            space_calc();
+
+            let alrloss = 1;
+            let nimsum = 0, rnum = -1, mb = 0;
+            for (let i = 0; i < rsz; i++) {
+                nimsum = (nimsum ^ diffs[i]);
+                if (diffs[i] != 0)
+                    alrloss = 0;
+            }
+
+            if (alrloss == 1) {
+                return [-1, -1]
+                //The game is already over in this case, human won!
+                //EDGE CASE, TAKE CARE
+            }
+
+            if (nimsum == 0) {
+                //Making random move
+                rnd_num = rand_range(0, 9);
+                while (diffs[rnd_num] == 0) {
+                    rnd_num = rand_range(0, 9);
+                }
+                rnum = rnd_num;
+                mb = rand_range(1, diffs[rnum] + 1);
+                return [rnum+1, mb];
+            }
+
+            for (let i = 0; i < rsz; i++) {
+                if ((diffs[i] ^ nimsum) < diffs[i]) {
+                    rnum = i;
+                    mb = diffs[i] - (diffs[i] ^ nimsum);
+                }
+            }
+
+            return [rnum + 1, mb];
+            //The blackrook in row rnum, must move mb spaces towards the left
+            //rnum is 0-indexed
+        }
+
+        var config = {
+            type: Phaser.AUTO,
+            parent: "mycanvas",
+            width: window.innerWidth - 20,
+            height: window.innerHeight - 20,
+            pixelArt: false,
+            backgroundColor: '#6a5acd',
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        var game = new Phaser.Game(config);
+        var scale = 1;
+        var bgscaleX = ((window.innerWidth) / 1450);
+        var bgscaleY = ((window.innerHeight) / 900);
+        var tiles = []
+        var lrooks = [];
+        var rrooks = [];
+        var turn = 0;
+        var player = 0
+        var redrook_pos = [1,1,1,1,1,1,1,1,1];
+        var blackrook_pos = [9,9,9,9,9,9,9,9,9];
+        var done=0;
+        var texttoshow='';
+        var clickedRow, amountOfXMove = 0;
+        var isAnimationDone = 1;
+
+        if (bgscaleX < bgscaleY) {
+            scale = bgscaleX
+        } else {
+            scale = bgscaleY
+        }
+
+        function preload() {
+            this.load.image('square', 'assets/square.png');
+            this.load.image('brook', 'assets/brook.png');
+            this.load.image('rrook', 'assets/rrook.png');
+        }
+
+        function deleteChildNodes() {
+            rules.parentNode.removeChild(rules);
+            p0.parentNode.removeChild(p0);
+            p1.parentNode.removeChild(p1);
+            p2.parentNode.removeChild(p2);
+        }
+        function selectPlayer(i) {
+            if (i == 1 && confirm('Are you sure you want to play as the First Player?')) {
+                player = 1
+                deleteChildNodes();
+                texttoshow='Your Turn'
+            } else if (i == 2 && confirm('Are you sure you want to play as the Second Player?')) {
+                player = 2
+                deleteChildNodes();
+                texttoshow='Computer\'s Turn'
+                setTimeout(computerMove,3000)
+            }
+        }
+
+        function handleGeneralMove() {
+            space_calc();
+            if (checkDone()) {
+                done = 1;
+            } 
+            player = 3 - player
+            isAnimationDone = 0;
+        }
+
+        function computerMove(){
+            move=best_move();
+            clickedRow = move[0];
+            amountOfXMove = 80 * scale * move[1];
+            blackrook_pos[move[0] - 1] -= move[1]   
+            handleGeneralMove();                  
+        }
+
+        function validMove(i,j){
+            if (blackrook_pos[i-1]>j && j>redrook_pos[i-1]) {
+                return true
+            }
+            return false
+        }
+
+        function handleMove(i, j) {
+            // Ignore Click when animations are going on OR when the game is done
+            if ( (isAnimationDone == 0) || (done == 1) ) {
+                return;
+            }
+            if (player == 0) {
+                alert('Please choose whether you want to play First or Second')
+                return;
+            }
+            if (player != 1) {
+                alert('Please wait for the Computer to make it\'s move')
+                return;
+            }
+            if (!validMove(i,j)) {
+                alert('Invalid Move')
+                return;
+            }
+            clickedRow = i;
+            amountOfXMove = 80 * scale * (j - redrook_pos[i-1]);
+            redrook_pos[i-1] = j
+
+            handleGeneralMove();
+        }
+
+        function checkDone() {
+            let alrloss = 1
+            for (let i = 0; i < rsz; i++) {
+                if (diffs[i] != 0)
+                    alrloss = 0;
+            }
+            if (alrloss == 1) {
+                return true
+            }
+            return false
+        }
+    
+        function create() {
+            for (var i = 1; i <= (9); i++) {
+                subli = [];
+                for (var j = 1; j <= (9); j++) {
+                    var square = this.add.sprite(40 * scale + (j * 80.0 * scale),  (i * 80.0 * scale), 'square').setInteractive();
+                    square.scaleX = scale
+                    square.scaleY = scale
+                    subli[j] = square;
+                    square.posx = i;
+                    square.posy = j;
+                    square.istinted = 0;
+                    square.on('pointerdown', function (pointer) {
+                        handleMove(this.posx, this.posy);
+                    });
+                }
+                tiles[i] = subli;
+            }
+
+            for (var i = 1; i <= 9; i++) {
+                var rook = this.add.sprite(40 * scale + (80.0 * scale),  (i * 80.0 * scale), 'rrook').setInteractive();
+                rook.scaleX = scale
+                rook.scaleY = scale
+                lrooks[i] = rook
+            }
+            for (var i = 1; i <= 9; i++) {
+                var rook = this.add.sprite(40 * scale + (9 * 80.0 * scale),  (i * 80.0 * scale), 'brook').setInteractive();
+                rook.scaleX = scale
+                rook.scaleY = scale
+                rrooks[i] = rook
+            }
+        }
+
+        function update() {
+            if (amountOfXMove > 0) {
+                if (player == 2) {
+                    // Animate Player-1's rook
+                    if (amountOfXMove > 10) {
+                        lrooks[clickedRow].x += 10;
+                        amountOfXMove -= 10;
+                    } else {
+                        lrooks[clickedRow].x += amountOfXMove;
+                        amountOfXMove = 0;
+                        isAnimationDone = 1
+                        if (done != 1) {
+                            texttoshow='Computer\'s Turn'
+                            setTimeout(computerMove, 3000)
+                        }
+                    }
+                } else {
+                    // Animate Player-2's rook
+                    if (amountOfXMove > 10) {
+                        rrooks[clickedRow].x -= 10;
+                        amountOfXMove -= 10;
+                    } else {
+                        rrooks[clickedRow].x -= amountOfXMove;
+                        amountOfXMove = 0;
+                        isAnimationDone = 1
+                        if (done != 1)
+                            texttoshow='Your Turn'
+                    }
+                }
+                return;
+            }
+            
+            if (done == 1) {
+                if (player == 2) {
+                    texttoshow='Congratulations!! You Win the Game!'
+                } else {
+                    texttoshow='Oh, No!! You Lose the Game!'
+                }
+            }
+
+            document.getElementById("move").innerHTML = texttoshow;
+        }
+    </script>
+</body>
+
+</html>

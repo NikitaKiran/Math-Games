@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.15.1/dist/phaser-arcade-physics.min.js"></script>
+</head>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgb(106, 90, 205);
+    }
+    .blueButton {
+        background-color:rgb(219,195,227);
+        border: none;
+        color: black;
+        padding: 10px 10px;
+        font-size: 21px;
+        width: 100px;
+        border-radius: 10px;
+    }
+</style>
+
+<body>
+    <p style="font-size:20pt;color: white; margin: 1%;">There is a 3x5 bar of chocolate, and the upper left corner
+        is poisoned. Two players alternate turns making moves. In a move, a player can select a particular square and
+        eat (remove) all squares below it and to the right of it. The player who eats the poisoned square loses. Decide
+        whether you want to be the player who plays first/second, and then try to defeat the computer.
+    </p><br><center>
+        <button class="blueButton" id="p1" onClick="selectPlayer(1)">Player 1</button>&emsp;&emsp;&emsp;&emsp;
+        <button class="blueButton" id="p2" onClick="selectPlayer(2)">Player 2</button></center><br>
+    <div id="mycanvas"></div>
+
+
+
+    <script>
+        var game_states = new Map();
+        game_states.set(0, [-1, 'Player 1']);
+
+        function encode(a, b, c) {
+            return 36 * a + 6 * b + c;
+        }
+
+        function analyze_chomp(a, b, c) {
+            let key = encode(a, b, c);
+            if (c != 0)
+                game_states.set(key, [encode(a, b, c - 1), 'Player 2'])
+            else if (b != 0)
+                game_states.set(key, [encode(a, b - 1, 0), 'Player 2'])
+            else
+                game_states.set(key, [encode(a - 1, 0, 0), 'Player 2'])
+
+            for (var i = 0; i < a; i++) {
+                let candidate = encode(i, Math.min(i, b), Math.min(i, c));
+                if (!game_states.has(candidate)) {
+                    analyze_chomp(i, Math.min(i, b), Math.min(i, c));
+                }
+                if (game_states.get(candidate)[1] == 'Player 2') {
+                    game_states.set(key, [candidate, 'Player 1']);
+                }
+            }
+
+            for (var i = 0; i < b; i++) {
+                let candidate = encode(a, i, Math.min(i, c));
+                if (!game_states.has(candidate)) {
+                    analyze_chomp(a, i, Math.min(i, c));
+                }
+                if (game_states.get(candidate)[1] == 'Player 2') {
+                    game_states.set(key, [candidate, 'Player 1']);
+                }
+            }
+
+            for (var i = 0; i < c; i++) {
+                let candidate = encode(a, b, i);
+                if (!game_states.has(candidate)) {
+                    analyze_chomp(a, b, i);
+                }
+                if (game_states.get(candidate)[1] == 'Player 2') {
+                    game_states.set(key, [candidate, 'Player 1']);
+                }
+            }
+
+            //document.write(key, ' ', game_states.get(key)[0], ' ', game_states.get(key)[1], ' ');
+            return;
+        }
+
+        analyze_chomp(5, 5, 5);
+
+
+        function best_move_winner(a, b, c) {
+
+            let key = encode(a, b, c);
+            let k = game_states.get(key)[0];
+            let r3 = k % 6;
+            let r2 = (Math.floor(k / 6)) % 6;
+            let r1 = (Math.floor(k / 36)) % 6;
+            let x = -1;
+            let y = -1;
+
+            if (r3 != c) {
+                x = 3, y = r3 + 1;
+            }
+            if (r2 != b) {
+                x = 2, y = r2 + 1;
+            }
+            if (r1 != a) {
+                x = 1, y = r1 + 1;
+            }
+            //document.write(r1, r2, r3, x, y);
+            return [x, y];
+            //After the computer's turn, the rows have r1, r2 and r3 are pieces of chocolate respectively.
+            //The chocolate piece chosen the y'th one in the x'th row [1-indexed]
+            //If r1 == r2 == r3 == 0, the comp ate the last piece and lost
+        }
+
+
+
+
+        var config = {
+            type: Phaser.AUTO,
+            parent: "mycanvas",
+            width: window.innerWidth - 20,
+            height: window.innerHeight - 20,
+            pixelArt: false,
+            backgroundColor: '#6a5acd',
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        var game = new Phaser.Game(config);
+        var scale = 1;
+        var bgscaleX = ((window.innerWidth) / 1450);
+        var bgscaleY = ((window.innerHeight) / 900);
+        var tiles = []
+        var turn = 1;
+        var player = 0;
+        var done = 0;
+        var text1;
+        var texttoshow = '';
+        var r1 = 5;
+        var r2 = 5;
+        var r3 = 5;
+
+
+        if (bgscaleX < bgscaleY) {
+            scale = bgscaleX
+        } else {
+            scale = bgscaleY
+        }
+
+
+
+        function preload() {
+
+            this.load.image('square', 'assets/square3.png');
+        }
+        function selectPlayer(i) {
+            if (i == 1 && confirm('Are you sure you want to play as the first player?')) {
+                player = 1
+                p1.parentNode.removeChild(p1);
+                p2.parentNode.removeChild(p2);    
+                texttoshow = 'Your Turn'
+
+
+
+            } else if (i == 2 && confirm('Are you sure you want to play as the second player?')) {
+                player = 2
+                texttoshow = 'Computer\'s turn'
+                p1.parentNode.removeChild(p1);
+                p2.parentNode.removeChild(p2);    
+                setTimeout(computerMove, 3000)
+
+            }
+        }
+        function computerMove() {
+            var move = best_move_winner(r1, r2, r3);
+            y = move[1]
+            x = move[0]
+            tiles[x][y].destroy()
+            tiles[x][y] = 0
+            for (var k = x; k < 4; k++) {
+                for (var l = y; l < 6; l++) {
+                    if (tiles[k][l] != 0) {
+                        tiles[k][l].destroy()
+                        tiles[k][l] = 0
+                    }
+                }
+            }
+                if (x == 1 && y == 1) {
+                    done = 1
+                } else {
+                    player = 3 - player
+                    
+                    texttoshow = 'Your Turn'
+
+                }
+
+            }
+
+            function handleMove(i, j) {
+                if(done==1){
+                    return
+                }
+                if (player == 0) {
+                    alert('Please choose a player first!')
+                    return
+                }
+                if (player == 1) {
+
+                    tiles[i][j].destroy()
+                    tiles[i][j] = 0
+                    for (var k = i; k < 4; k++) {
+                        for (var l = j; l < 6; l++) {
+                            if (tiles[k][l] != 0) {
+                                tiles[k][l].destroy()
+                                tiles[k][l] = 0
+                            }
+                        }
+                    } if (i == 1 && j == 1) {
+                        done = 1
+
+                    } else {
+                        player = 3 - player
+                        texttoshow = 'Computer\'s turn'
+                        setTimeout(computerMove, 3000)
+                    }
+                } else if (player == 2) {
+                    
+                    alert('Computer\'s turn')
+                }
+            }
+
+
+            function create() {
+                const style = { font: "30px Arial", fill: "#fff" };
+                text1 = this.add.text(10, 5, ``, style);
+                
+                for (var i = 1; i <= (3); i++) {
+                    subli = [];
+                    for (var j = 1; j <= (5); j++) {
+                        var square = this.add.sprite(40 * scale + (j * 80.0 * scale), (80.0 * scale) + (i * 80.0 * scale), 'square').setInteractive();
+                        square.scaleX = scale
+                        square.scaleY = scale
+                        subli[j] = square;
+                        square.posx = i;
+                        square.posy = j;
+                        square.on('pointerdown', function (pointer) {
+                            handleMove(this.posx, this.posy);
+                        });
+                    }
+                    tiles[i] = subli;
+
+                }
+                tiles[1][1].tint = 0x415b2b
+
+
+
+
+            }
+
+
+            function update() {
+                text1.setText(texttoshow)
+                if (done == 1) {
+                    if (player == 2) {
+                        texttoshow = 'You win!'
+                    } else {
+                        texttoshow = 'You lose!'
+                    }
+                }
+                r1 = 0
+                r2 = 0
+                r3 = 0
+                for (var i = 1; i <= 5; i++) {
+                    if (tiles[1][i] != 0) {
+                        r1 += 1
+
+                    }
+                    if (tiles[2][i] != 0) {
+                        r2 += 1
+
+                    }
+                    if (tiles[3][i] != 0) {
+                        r3 += 1
+
+                    }
+                }
+
+
+            }
+
+
+
+    </script>
+    
+
+
+</body>
+
+</html>
